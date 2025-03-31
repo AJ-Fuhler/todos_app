@@ -13,13 +13,11 @@ from flask import (
 )
 from werkzeug.exceptions import NotFound
 from todos.utils import (
-    delete_todo_by_id,
     error_for_list_title, 
     error_for_todo,
     find_todo_by_id,
     is_list_completed,
     is_todo_completed,
-    mark_all_completed,
     sort_items,
     todos_remaining,
 )
@@ -112,10 +110,9 @@ def create_todo(lst, list_id):
 @app.route("/lists/<list_id>/todos/<todo_id>/toggle", methods=["POST"])
 @require_todo
 def update_todo_status(lst, todo, list_id, todo_id):
-    todo['completed'] = (request.form['completed'] == 'True')
-
+    new_status = (request.form['completed'] == 'True')
+    g.storage.update_todo_status(list_id, todo_id, new_status)
     flash("The todo has been updated.", "success")
-    session.modified = True
     return redirect(url_for('show_list', list_id=list_id))
 
 @app.route("/lists/<list_id>/todos/<todo_id>/delete", methods=["POST"])
@@ -128,10 +125,8 @@ def delete_todo(lst, todo, list_id, todo_id):
 @app.route("/lists/<list_id>/complete_all", methods=["POST"])
 @require_list
 def mark_all_todos_completed(lst, list_id):
-    mark_all_completed(lst)
-
+    g.storage.mark_all_todos_completed(list_id)
     flash("All todos have been updated.", "success")
-    session.modified = True
     return redirect(url_for('show_list', list_id=list_id))
 
 @app.route("/lists/<list_id>/edit")
