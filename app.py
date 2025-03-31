@@ -151,11 +151,8 @@ def edit_list(lst, list_id):
 @app.route("/lists/<list_id>/delete", methods=["POST"])
 @require_list
 def delete_list(lst, list_id):
-    session['lists'] = [lst for lst in session['lists']
-                        if lst['id'] != list_id]
-
+    g.storage.delete_list(list_id)
     flash("The list has been deleted.", "success")
-    session.modified = True
     return redirect(url_for('get_lists'))
 
 @app.route("/lists/<list_id>", methods=["POST"])
@@ -163,14 +160,13 @@ def delete_list(lst, list_id):
 def update_list(lst, list_id):
     title = request.form["list_title"].strip()
 
-    error = error_for_list_title(title, session['lists'])
+    error = error_for_list_title(title, g.storage.all_lists())
     if error:
         flash(error, "error")
         return render_template('edit_list.html', lst=lst, title=title)
 
-    lst['title'] = title
+    g.storage.update_list_by_id(list_id, title)
     flash("The list has been updated.", "success")
-    session.modified = True
     return redirect(url_for('show_list', list_id=list_id))
 
 if __name__ == "__main__":
