@@ -30,4 +30,18 @@ class SessionPersistance:
         self.session['lists'] = [lst for lst in session['lists']
                         if lst['id'] != list_id]
         self.session.modified = True
+
+    def create_new_todo(self, list_id, todo_title):
+        lst = self.find_list(list_id)
         
+        lst['todos'].append({
+        'id': str(uuid4()),
+        'title': todo_title,
+        'completed': False,
+        })
+        self.session.modified = True
+
+    def delete_todo_from_list(self, list_id, todo_id):
+        lst = self.find_list(list_id)
+        lst['todos'] = [todo for todo in lst['todos'] if todo['id'] != todo_id]
+        self.session.modified = True
