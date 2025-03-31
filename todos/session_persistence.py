@@ -1,4 +1,4 @@
-class SessionPersistance:
+class SessionPersistence:
     def __init__(self, session):
         self.session = session
         if 'lists' not in self.session:

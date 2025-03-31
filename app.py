@@ -8,7 +8,6 @@ from flask import (
     redirect,
     render_template,
     request,
-    session,
     url_for,
 )
 from werkzeug.exceptions import NotFound
@@ -22,7 +21,7 @@ from todos.utils import (
     todos_remaining,
 )
 
-from todos.session_persistance import SessionPersistance
+from todos.database_persistence import DatabasePersistence
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
@@ -58,7 +57,7 @@ def list_utilities_processor():
 
 @app.before_request
 def load_storage():
-    g.storage = SessionPersistance(session)
+    g.storage = DatabasePersistence()
 
 @app.route("/")
 def index():
@@ -66,7 +65,7 @@ def index():
 
 @app.route("/lists")
 def get_lists():
-    lists = sort_items(session['lists'], is_list_completed)
+    lists = sort_items(g.storage.all_lists(), is_list_completed)
     return render_template('lists.html',
                            lists=lists,
                            todos_remaining=todos_remaining)
@@ -88,13 +87,13 @@ def create_list():
 def add_todo_list():
     return render_template('new_list.html')
 
-@app.route("/lists/<list_id>")
+@app.route("/lists/<int:list_id>")
 @require_list
 def show_list(lst, list_id):
     lst['todos'] = sort_items(lst['todos'], is_todo_completed)
     return render_template('list.html', lst=lst)
 
-@app.route("/lists/<list_id>/todos", methods=["POST"])
+@app.route("/lists/<int:list_id>/todos", methods=["POST"])
 @require_list
 def create_todo(lst, list_id):
     todo_title = request.form["todo"].strip()
@@ -107,7 +106,7 @@ def create_todo(lst, list_id):
     flash("The todo was added.", "success")
     return redirect(url_for('show_list', list_id=list_id))
 
-@app.route("/lists/<list_id>/todos/<todo_id>/toggle", methods=["POST"])
+@app.route("/lists/<int:list_id>/todos/<int:todo_id>/toggle", methods=["POST"])
 @require_todo
 def update_todo_status(lst, todo, list_id, todo_id):
     new_status = (request.form['completed'] == 'True')
@@ -115,33 +114,33 @@ def update_todo_status(lst, todo, list_id, todo_id):
     flash("The todo has been updated.", "success")
     return redirect(url_for('show_list', list_id=list_id))
 
-@app.route("/lists/<list_id>/todos/<todo_id>/delete", methods=["POST"])
+@app.route("/lists/<int:list_id>/todos/<int:todo_id>/delete", methods=["POST"])
 @require_todo
 def delete_todo(lst, todo, list_id, todo_id):
     g.storage.delete_todo_from_list(list_id, todo_id)
     flash("The todo has been deleted.", "success")
     return redirect(url_for('show_list', list_id=list_id))
 
-@app.route("/lists/<list_id>/complete_all", methods=["POST"])
+@app.route("/lists/<int:list_id>/complete_all", methods=["POST"])
 @require_list
 def mark_all_todos_completed(lst, list_id):
     g.storage.mark_all_todos_completed(list_id)
     flash("All todos have been updated.", "success")
     return redirect(url_for('show_list', list_id=list_id))
 
-@app.route("/lists/<list_id>/edit")
+@app.route("/lists/<int:list_id>/edit")
 @require_list
 def edit_list(lst, list_id):
     return render_template('edit_list.html', lst=lst)
 
-@app.route("/lists/<list_id>/delete", methods=["POST"])
+@app.route("/lists/<int:list_id>/delete", methods=["POST"])
 @require_list
 def delete_list(lst, list_id):
     g.storage.delete_list(list_id)
     flash("The list has been deleted.", "success")
     return redirect(url_for('get_lists'))
 
-@app.route("/lists/<list_id>", methods=["POST"])
+@app.route("/lists/<int:list_id>", methods=["POST"])
 @require_list
 def update_list(lst, list_id):
     title = request.form["list_title"].strip()
