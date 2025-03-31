@@ -1,7 +1,12 @@
 from contextlib import contextmanager
 
+import logging
 import psycopg2
 from psycopg2.extras import DictCursor
+
+LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+logger = logging.getLogger(__name__)
 
 class DatabasePersistence:
     def __init__(self):
@@ -16,25 +21,39 @@ class DatabasePersistence:
         finally:
             connection.close()
 
+    def _find_todos_for_list(self, list_id):
+        query = "SELECT * FROM todos WHERE list_id = %s"
+        logger.info("Executing query: %s with list_id: %s", query, list_id)
+        with self._database_connect() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cursor:
+                cursor.execute(query, (list_id,))
+                return cursor.fetchall()
+
     def all_lists(self):
         query = "SELECT * FROM lists"
+        logger.info("Executing query: %s", query)
         with self._database_connect() as conn:
             with conn.cursor(cursor_factory=DictCursor) as cursor:
                 cursor.execute(query)
                 results = cursor.fetchall()
+    
         lists = [dict(result) for result in results]
         for lst in lists:
-            lst.setdefault('todos', [])
+            todos = self._find_todos_for_list(lst['id'])
+            lst.setdefault('todos', todos)
+
         return lists
 
     def find_list(self, list_id):
         query = "SELECT * FROM lists WHERE id = %s"
+        logger.info("executing query: %s with list_id: %s", query, list_id)
         with self._database_connect() as conn:
             with conn.cursor(cursor_factory=DictCursor) as cursor:
                 cursor.execute(query, (list_id,))
                 lst = dict(cursor.fetchone())
         
-        lst.setdefault('todos', [])
+        todos = self._find_todos_for_list(list_id)
+        lst.setdefault('todos', todos)
         return lst
     
     def create_new_list(self, title):
