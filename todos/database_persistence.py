@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 
+import os
 import logging
 import psycopg2
 from psycopg2.extras import DictCursor
@@ -10,11 +11,14 @@ logger = logging.getLogger(__name__)
 
 class DatabasePersistence:
     def __init__(self):
-        pass
+        self._setup_schema()
 
     @contextmanager
     def _database_connect(self):
-        connection = psycopg2.connect(dbname='todos')
+        if os.environ.get('FLASK_ENV') == 'production':
+            connection = psycopg2.connect(os.environ['DATABASE_URL'])
+        else:
+            connection = psycopg2.connect(dbname='todos')
         try:
             with connection:
                 yield connection
@@ -111,4 +115,37 @@ class DatabasePersistence:
         with self._database_connect() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(query, (list_id,))
+
+    def _setup_schema(self):
+        with self._database_connect() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*)
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'lists';
+                """)
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute("""
+                        CREATE TABLE lists (
+                            id serial PRIMARY KEY,
+                            title text NOT NULL UNIQUE
+                        );
+                    """)
+                cursor.execute("""
+                    SELECT COUNT(*)
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'todos';
+                """)
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute("""
+                        CREATE TABLE todos (
+                            id serial PRIMARY KEY,
+                            title text NOT NULL,
+                            completed boolean NOT NULL DEFAULT false,
+                            list_id integer NOT NULL
+                                            REFERENCES lists (id)
+                                            ON DELETE CASCADE
+                        );
+                    """)
+
         
